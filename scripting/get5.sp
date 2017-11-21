@@ -77,6 +77,8 @@ ConVar g_VetoConfirmationTimeCvar;
 ConVar g_VetoCountdownCvar;
 ConVar g_WarmupCfgCvar;
 
+ConVar g_ForfeitMapOnPlayerLeaveCvar;
+
 // Autoset convars (not meant for users to set)
 ConVar g_GameStateCvar;
 ConVar g_LastGet5BackupCvar;
@@ -303,6 +305,9 @@ public void OnPluginStart() {
   g_WarmupCfgCvar =
       CreateConVar("get5_warmup_cfg", "get5/warmup.cfg", "Config file to exec in warmup periods");
 
+  g_ForfeitMapOnPlayerLeaveCvar =
+    CreateConVar("get5_forfeit_map_on_player_leave", "1", "Forfeits whole map when player disconnects during game, opponent wins the map");
+
   /** Create and exec plugin's configuration file **/
   AutoExecConfig(true, "get5");
 
@@ -380,6 +385,7 @@ public void OnPluginStart() {
   HookEvent("server_cvar", Event_CvarChanged, EventHookMode_Pre);
   HookEvent("player_connect_full", Event_PlayerConnectFull);
   HookEvent("player_team", Event_OnPlayerTeam, EventHookMode_Pre);
+  HookEvent("player_disconnect", Event_PlayerDisconnect);
   Stats_PluginStart();
   Stats_InitSeries();
 
@@ -498,6 +504,93 @@ public void OnClientAuthorized(int client, const char[] auth) {
       }
     }
   }
+}
+
+public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBroadcast) {
+  int client = GetClientOfUserId(event.GetInt("userid"));
+  EventLogger_PlayerDisconnect(client);
+
+  if (g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 0) {
+    // MatchTeam team = GetClientMatchTeam(client);
+    // ChangeState(GameState_None);
+    // Stats_Forfeit(team);
+    // EndSeries();
+
+    MatchTeam team = GetClientMatchTeam(client);
+    MatchTeam winningTeam = OtherMatchTeam(team);
+    g_TeamSeriesScores[winningTeam]++;
+
+    EventLogger_MapEnd(winningTeam);
+    
+    char mapName[PLATFORM_MAX_PATH];
+    GetCleanMapName(mapName, sizeof(mapName));
+
+    Call_StartForward(g_OnMapResult);
+    Call_PushString(mapName);
+    Call_PushCell(winningTeam);
+    Call_PushCell(CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1)));
+    Call_PushCell(CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2)));
+    Call_PushCell(GetMapNumber() - 1);
+    Call_Finish();
+
+    int t1maps = g_TeamSeriesScores[MatchTeam_Team1];
+    int t2maps = g_TeamSeriesScores[MatchTeam_Team2];
+    int tiedMaps = g_TeamSeriesScores[MatchTeam_TeamNone];
+
+    float minDelay = float(GetTvDelay()) + MATCH_END_DELAY_AFTER_TV;
+
+    if (t1maps == g_MapsToWin) {
+      // Team 1 won
+      SeriesEndMessage(MatchTeam_Team1);
+      DelayFunction(minDelay, EndSeries);
+
+    } else if (t2maps == g_MapsToWin) {
+      // Team 2 won
+      SeriesEndMessage(MatchTeam_Team2);
+      DelayFunction(minDelay, EndSeries);
+
+    } else if (t1maps == t2maps && t1maps + tiedMaps == g_MapsToWin) {
+      // The whole series was a tie
+      SeriesEndMessage(MatchTeam_TeamNone);
+      DelayFunction(minDelay, EndSeries);
+
+    } else if (g_BO2Match && GetMapNumber() == 2) {
+      // It was a bo2, and none of the teams got to 2
+      SeriesEndMessage(MatchTeam_TeamNone);
+      DelayFunction(minDelay, EndSeries);
+
+    } else {
+      if (t1maps > t2maps) {
+        Get5_MessageToAll("%t", "TeamWinningSeriesInfoMessage",
+                          g_FormattedTeamNames[MatchTeam_Team1], t1maps, t2maps);
+
+      } else if (t2maps > t1maps) {
+        Get5_MessageToAll("%t", "TeamWinningSeriesInfoMessage",
+                          g_FormattedTeamNames[MatchTeam_Team2], t2maps, t1maps);
+
+      } else {
+        Get5_MessageToAll("%t", "SeriesTiedInfoMessage", t1maps, t2maps);
+      }
+
+      int index = GetMapNumber();
+      char nextMap[PLATFORM_MAX_PATH];
+      g_MapsToPlay.GetString(index, nextMap, sizeof(nextMap));
+
+      g_MapChangePending = true;
+      Get5_MessageToAll("%t", "NextSeriesMapInfoMessage", nextMap);
+      ChangeState(GameState_PostGame);
+      CreateTimer(minDelay, Timer_NextMatchMap);
+    }
+  }
+
+  // jezeli jest mecz jest live, i jezeli 
+
+  // g_MapChangePending
+// +  if (g_ClientsConnected <= 0) {
+//     if (g_GameState >= GameState_KnifeRound && g_EndMatchOnEveryoneLeavesCvar.IntValue != 0) {
+// +      EndSeries();
+// +    }
+// +  }
 }
 
 public void OnClientPutInServer(int client) {
