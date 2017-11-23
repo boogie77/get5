@@ -516,6 +516,10 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
     // Stats_Forfeit(team);
     // EndSeries();
 
+    if (CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1)) >= 16 || CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2)) >= 16) {
+      return Plugin_Continue;
+    }
+
     MatchTeam team = GetClientMatchTeam(client);
     MatchTeam winningTeam = OtherMatchTeam(team);
     g_TeamSeriesScores[winningTeam]++;
@@ -583,14 +587,7 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
     }
   }
 
-  // jezeli jest mecz jest live, i jezeli 
-
-  // g_MapChangePending
-// +  if (g_ClientsConnected <= 0) {
-//     if (g_GameState >= GameState_KnifeRound && g_EndMatchOnEveryoneLeavesCvar.IntValue != 0) {
-// +      EndSeries();
-// +    }
-// +  }
+  return Plugin_Continue;
 }
 
 public void OnClientPutInServer(int client) {
@@ -915,6 +912,7 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 
 public Action Event_MatchOver(Event event, const char[] name, bool dontBroadcast) {
   LogDebug("Event_MatchOver");
+
   if (g_GameState == GameState_Live) {
     // Figure out who won
     int t1score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1));
@@ -933,7 +931,7 @@ public Action Event_MatchOver(Event event, const char[] name, bool dontBroadcast
     Stats_UpdateMapScore(winningTeam);
     AddMapScore();
     g_TeamSeriesScores[winningTeam]++;
-
+    
     // Handle map end
 
     EventLogger_MapEnd(winningTeam);
