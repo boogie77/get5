@@ -511,11 +511,6 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
   EventLogger_PlayerDisconnect(client);
 
   if (g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 0) {
-    // MatchTeam team = GetClientMatchTeam(client);
-    // ChangeState(GameState_None);
-    // Stats_Forfeit(team);
-    // EndSeries();
-
     if (CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1)) >= 16 || CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2)) >= 16) {
       return Plugin_Continue;
     }
@@ -562,7 +557,6 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
       // It was a bo2, and none of the teams got to 2
       SeriesEndMessage(MatchTeam_TeamNone);
       DelayFunction(minDelay, EndSeries);
-
     } else {
       if (t1maps > t2maps) {
         Get5_MessageToAll("%t", "TeamWinningSeriesInfoMessage",
@@ -722,10 +716,18 @@ static void CheckReadyWaitingTime(MatchTeam team) {
 
     if (timeLeft <= 0) {
       Get5_MessageToAll("%t", "TeamForfeitInfoMessage", g_FormattedTeamNames[team]);
+
+      if(IsTeamReady(MatchTeam_Team1)) {
+        g_TeamSeriesScores[MatchTeam_Team1]++;
+      }
+
+      if(IsTeamReady(MatchTeam_Team2)) {
+        g_TeamSeriesScores[MatchTeam_Team2]++;
+      }
+
       ChangeState(GameState_None);
       Stats_Forfeit(team);
       EndSeries();
-
     } else if (timeLeft >= 300 && timeLeft % 60 == 0) {
       Get5_MessageToAll("%t", "MinutesToForfeitMessage", g_FormattedTeamNames[team], timeLeft / 60);
 
