@@ -510,8 +510,14 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
   int client = GetClientOfUserId(event.GetInt("userid"));
   EventLogger_PlayerDisconnect(client);
 
-  if (g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 0) {
-    if (CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1)) >= 16 || CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2)) >= 16) {
+  if (IsPlayer(client) && OnActiveTeam(client) && g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 0) {
+    int team1Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1));
+    int team2Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2));
+    
+    if ((team1Score >= 16 && team2Score < 15) ||
+        (team2Score >= 16 && team1Score < 15) ||
+        (team1Score >= 18 && team2Score >= 15) ||
+        (team2Score >= 18 && team1Score >= 15)) {
       return Plugin_Continue;
     }
 
