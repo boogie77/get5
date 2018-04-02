@@ -720,16 +720,18 @@ static void CheckReadyWaitingTime(MatchTeam team) {
     g_ReadyTimeWaitingUsed[team]++;
     int timeLeft = g_TeamTimeToStartCvar.IntValue - g_ReadyTimeWaitingUsed[team];
 
-    if (timeLeft <= 0) {
-      Get5_MessageToAll("%t", "TeamForfeitInfoMessage", g_FormattedTeamNames[team]);
-
+    if (timeLeft == 1) {
       if(IsTeamReady(MatchTeam_Team1)) {
         g_TeamSeriesScores[MatchTeam_Team1]++;
+      } else {
+        if(IsTeamReady(MatchTeam_Team2)) {
+          g_TeamSeriesScores[MatchTeam_Team2]++;
+        }
       }
+    }
 
-      if(IsTeamReady(MatchTeam_Team2)) {
-        g_TeamSeriesScores[MatchTeam_Team2]++;
-      }
+    if (timeLeft <= 0) {
+      Get5_MessageToAll("%t", "TeamForfeitInfoMessage", g_FormattedTeamNames[team]);
 
       ChangeState(GameState_None);
       Stats_Forfeit(team);
@@ -743,6 +745,18 @@ static void CheckReadyWaitingTime(MatchTeam team) {
     } else if (timeLeft == 10) {
       Get5_MessageToAll("%t", "10SecondsToForfeitInfoMessage", g_FormattedTeamNames[team],
                         timeLeft);
+    }
+  } else if (g_GameState != GameState_None) {
+    int timeLeft = g_TeamTimeToStartCvar.IntValue - g_ReadyTimeWaitingUsed[team];
+
+    if (timeLeft <= 1) {
+      if(IsTeamReady(MatchTeam_Team1)) {
+        g_TeamSeriesScores[MatchTeam_Team1]++;
+      } else {
+        if(IsTeamReady(MatchTeam_Team2)) {
+          g_TeamSeriesScores[MatchTeam_Team2]++;
+        }
+      }
     }
   }
 }
