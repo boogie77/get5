@@ -510,7 +510,7 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
   int client = GetClientOfUserId(event.GetInt("userid"));
   EventLogger_PlayerDisconnect(client);
 
-  if (IsPlayer(client) && OnActiveTeam(client) && g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 0) {
+  if (IsPlayer(client) && OnActiveTeam(client) && g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 1) {
     int team1Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1));
     int team2Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2));
     
