@@ -174,7 +174,6 @@ public void Get5_OnGoingLive(int mapNumber) {
 }
 
 public void UpdateRoundStats(int mapNumber) {
-  LogMessage("UpdateRoundStats map %d", mapNumber);
   // Update team scores
   int t1score = CS_GetTeamScore(Get5_MatchTeamToCSTeam(MatchTeam_Team1));
   int t2score = CS_GetTeamScore(Get5_MatchTeamToCSTeam(MatchTeam_Team2));
@@ -324,7 +323,7 @@ public int SQLErrorCheckCallback(Handle owner, Handle hndl, const char[] error, 
 }
 
 public void Get5_OnRoundStatsUpdated() {
-  if (Get5_GetGameState() == GameState_Live && !g_DisableStats) {
+  if (Get5_GetGameState() == Get5State_Live && !g_DisableStats) {
     UpdateRoundStats(MapNumber());
   }
 }
@@ -333,6 +332,6 @@ static int MapNumber() {
   int t1, t2;
   int buf;
   Get5_GetTeamScores(MatchTeam_Team1, t1, buf);
-  Get5_GetTeamScores(MatchTeam_Team1, t2, buf);
+  Get5_GetTeamScores(MatchTeam_Team2, t2, buf);
   return t1 + t2;
 }

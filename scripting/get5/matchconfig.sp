@@ -11,7 +11,7 @@
 #define CONFIG_SIDETYPE_DEFAULT "standard"
 
 stock bool LoadMatchConfig(const char[] config, bool restoreBackup = false) {
-  if (g_GameState != GameState_None && !restoreBackup) {
+  if (g_GameState != Get5State_None && !restoreBackup) {
     return false;
   }
 
@@ -25,6 +25,9 @@ stock bool LoadMatchConfig(const char[] config, bool restoreBackup = false) {
     g_ReadyTimeWaitingUsed[team] = 0;
     ClearArray(GetTeamAuths(team));
   }
+
+  g_ForceWinnerSignal = false;
+  g_ForcedWinner = MatchTeam_TeamNone;
 
   g_LastVetoTeam = MatchTeam_Team2;
   g_MapPoolList.Clear();
@@ -90,7 +93,7 @@ stock bool LoadMatchConfig(const char[] config, bool restoreBackup = false) {
     }
 
     g_MapPoolList.GetString(GetMapNumber(), mapName, sizeof(mapName));
-    ChangeState(GameState_Warmup);
+    ChangeState(Get5State_Warmup);
 
     char currentMap[PLATFORM_MAX_PATH];
     GetCurrentMap(currentMap, sizeof(currentMap));
@@ -98,7 +101,7 @@ stock bool LoadMatchConfig(const char[] config, bool restoreBackup = false) {
       ChangeMap(mapName);
     }
   } else {
-    ChangeState(GameState_PreVeto);
+    ChangeState(Get5State_PreVeto);
   }
 
   if (!restoreBackup) {
@@ -192,27 +195,15 @@ static void MatchConfigFail(const char[] reason, any...) {
   Call_Finish();
 }
 
-stock bool LoadMatchFromUrl(const char[] url, bool preferSystem2 = true,
-                            ArrayList paramNames = null, ArrayList paramValues = null) {
+stock bool LoadMatchFromUrl(const char[] url, ArrayList paramNames = null,
+                            ArrayList paramValues = null) {
   bool steamWorksAvaliable = LibraryExists("SteamWorks");
-  bool system2Avaliable = LibraryExists("system2");
-  bool forceSteamworks = (steamWorksAvaliable && !preferSystem2);
 
   char cleanedUrl[1024];
   strcopy(cleanedUrl, sizeof(cleanedUrl), url);
   ReplaceString(cleanedUrl, sizeof(cleanedUrl), "\"", "");
 
-  if (system2Avaliable && !forceSteamworks) {
-    // No protocal strings here.
-    ReplaceString(cleanedUrl, sizeof(cleanedUrl), "https://", "");
-    ReplaceString(cleanedUrl, sizeof(cleanedUrl), "http://", "");
-    LogDebug("cleanedUrl (system2) = %s", cleanedUrl);
-    char remoteConfig[PLATFORM_MAX_PATH];
-    GetTempFilePath(remoteConfig, sizeof(remoteConfig), REMOTE_CONFIG_PATTERN);
-    System2_DownloadFile(System2_OnMatchConfigReceived, cleanedUrl, remoteConfig);
-    return true;
-
-  } else if (steamWorksAvaliable) {
+  if (steamWorksAvaliable) {
     // Add the protocl strings. Only allow http since SteamWorks doesn't support http it seems?
     ReplaceString(cleanedUrl, sizeof(cleanedUrl), "https://", "http://");
     if (StrContains(cleanedUrl, "http://") == -1) {
@@ -245,7 +236,7 @@ stock bool LoadMatchFromUrl(const char[] url, bool preferSystem2 = true,
     return true;
 
   } else {
-    MatchConfigFail("Neither steamworks nor system2 extensions avaliable");
+    MatchConfigFail("SteamWorks extension is not available");
     return false;
   }
 }
@@ -262,19 +253,6 @@ public int SteamWorks_OnMatchConfigReceived(Handle request, bool failure, bool r
   GetTempFilePath(remoteConfig, sizeof(remoteConfig), REMOTE_CONFIG_PATTERN);
   SteamWorks_WriteHTTPResponseBodyToFile(request, remoteConfig);
   LoadMatchConfig(remoteConfig);
-}
-
-public int System2_OnMatchConfigReceived(bool finished, const char[] error, float dltotal, float dlnow,
-                                  float ultotal, float ulnow, int serial) {
-  if (finished) {
-    if (!StrEqual(error, "")) {
-      MatchConfigFail("Error receiving remote config via system2: %s", error);
-    } else if (finished) {
-      char remoteConfig[PLATFORM_MAX_PATH];
-      GetTempFilePath(remoteConfig, sizeof(remoteConfig), REMOTE_CONFIG_PATTERN);
-      LoadMatchConfig(remoteConfig);
-    }
-  }
 }
 
 public void WriteMatchToKv(KeyValues kv) {
@@ -629,8 +607,8 @@ static void LoadTeamData(KeyValues kv, MatchTeam matchTeam) {
 
 static void LoadDefaultMapList(ArrayList list) {
   list.PushString("de_cache");
-  list.PushString("de_cbble");
   list.PushString("de_dust2");
+  list.PushString("de_inferno");
   list.PushString("de_mirage");
   list.PushString("de_nuke");
   list.PushString("de_overpass");
@@ -688,6 +666,12 @@ public void SetMatchTeamCvars() {
   if (g_MapsToWin > 1) {
     SetConVarIntSafe("mp_teamscore_max", g_MapsToWin);
   }
+
+  char formattedHostname[128];
+
+  if (FormatCvarString(g_SetHostnameCvar, formattedHostname, sizeof(formattedHostname))) {
+    SetConVarStringSafe("hostname", formattedHostname);
+  }
 }
 
 public MatchTeam GetMapWinner(int mapNumber) {
@@ -721,7 +705,7 @@ public void ExecuteMatchConfigCvars() {
 }
 
 public Action Command_LoadTeam(int client, int args) {
-  if (g_GameState == GameState_None) {
+  if (g_GameState == Get5State_None) {
     ReplyToCommand(client, "Cannot change player lists when there is no match to modify");
     return Plugin_Handled;
   }
@@ -759,8 +743,14 @@ public Action Command_LoadTeam(int client, int args) {
 }
 
 public Action Command_AddPlayer(int client, int args) {
-  if (g_GameState == GameState_None) {
+  if (g_GameState == Get5State_None) {
     ReplyToCommand(client, "Cannot change player lists when there is no match to modify");
+    return Plugin_Handled;
+  }
+
+  if (g_InScrimMode) {
+    ReplyToCommand(
+        client, "Cannot use get5_addplayer in scrim mode. Use get5_ringer to swap a players team.");
     return Plugin_Handled;
   }
 
@@ -788,7 +778,7 @@ public Action Command_AddPlayer(int client, int args) {
     if (AddPlayerToTeam(auth, team, name)) {
       ReplyToCommand(client, "Successfully added player %s to team %s", auth, teamString);
     } else {
-      ReplyToCommand(client, "Failed to add %s to a match team", auth);
+      ReplyToCommand(client, "Player %s is already on a match team.", auth);
     }
 
   } else {
@@ -798,8 +788,15 @@ public Action Command_AddPlayer(int client, int args) {
 }
 
 public Action Command_RemovePlayer(int client, int args) {
-  if (g_GameState == GameState_None) {
+  if (g_GameState == Get5State_None) {
     ReplyToCommand(client, "Cannot change player lists when there is no match to modify");
+    return Plugin_Handled;
+  }
+
+  if (g_InScrimMode) {
+    ReplyToCommand(
+        client,
+        "Cannot use get5_removeplayer in scrim mode. Use get5_ringer to swap a players team.");
     return Plugin_Handled;
   }
 
@@ -808,7 +805,7 @@ public Action Command_RemovePlayer(int client, int args) {
     if (RemovePlayerFromTeams(auth)) {
       ReplyToCommand(client, "Successfully removed player %s", auth);
     } else {
-      ReplyToCommand(client, "Failed to remove %s from team auth lists", auth);
+      ReplyToCommand(client, "Player %s not found in auth lists.", auth);
     }
   } else {
     ReplyToCommand(client, "Usage: get5_removeplayer <auth>");
@@ -817,7 +814,7 @@ public Action Command_RemovePlayer(int client, int args) {
 }
 
 public Action Command_CreateMatch(int client, int args) {
-  if (g_GameState != GameState_None) {
+  if (g_GameState != Get5State_None) {
     ReplyToCommand(client, "Cannot create a match when a match is already loaded");
     return Plugin_Handled;
   }
@@ -881,7 +878,7 @@ public Action Command_CreateMatch(int client, int args) {
 }
 
 public Action Command_CreateScrim(int client, int args) {
-  if (g_GameState != GameState_None) {
+  if (g_GameState != Get5State_None) {
     ReplyToCommand(client, "Cannot create a match when a match is already loaded");
     return Plugin_Handled;
   }
@@ -932,6 +929,14 @@ public Action Command_CreateScrim(int client, int args) {
       char name[MAX_NAME_LENGTH];
       kv.GetString(NULL_STRING, name, sizeof(name), KEYVALUE_STRING_PLACEHOLDER);
       kv.GetSectionName(auth, sizeof(auth));
+
+      // This shouldn't be necessary, but when the name field was empty, the
+      // use of KEYVALUE_STRING_PLACEHOLDER as a default doesn't seem to work.
+      // TODO: figure out what's going on with needing this here.
+      if (StrEqual(name, "")) {
+        name = KEYVALUE_STRING_PLACEHOLDER;
+      }
+
       kv.SetString(NULL_STRING, name);
     } while (kv.GotoNextKey(false));
     kv.Rewind();
@@ -953,6 +958,27 @@ public Action Command_CreateScrim(int client, int args) {
 
   delete kv;
   LoadMatchConfig(path);
+  return Plugin_Handled;
+}
+
+public Action Command_Ringer(int client, int args) {
+  if (g_GameState == Get5State_None || !g_InScrimMode) {
+    ReplyToCommand(client, "This command can only be used in scrim mode");
+    return Plugin_Handled;
+  }
+
+  char arg1[32];
+  if (args >= 1 && GetCmdArg(1, arg1, sizeof(arg1))) {
+    int target = FindTarget(client, arg1, true, false);
+    if (IsAuthedPlayer(target)) {
+      SwapScrimTeamStatus(target);
+    } else {
+      ReplyToCommand(client, "Player not found");
+    }
+  } else {
+    ReplyToCommand(client, "Usage: sm_ringer <player>");
+  }
+
   return Plugin_Handled;
 }
 

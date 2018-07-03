@@ -2,6 +2,9 @@ get5
 ===========================
 
 [![Build status](http://ci.splewis.net/job/get5/badge/icon)](http://ci.splewis.net/job/get5/)
+[![GitHub Downloads](https://img.shields.io/github/downloads/splewis/get5/total.svg?style=flat-square&label=Downloads)](https://github.com/splewis/get5/releases/latest)
+
+**Status: Supported, actively developed.**
 
 Get5 is a standalone [SourceMod](http://www.sourcemod.net/) plugin for CS:GO servers for running matches. It is originally based on [pugsetup](https://github.com/splewis/csgo-pug-setup) and is inspired by [eBot](https://github.com/deStrO/eBot-CSGO).
 
@@ -25,10 +28,12 @@ Features of this include:
 - Allows lightweight usage for [scrims](https://github.com/splewis/get5/wiki/Using-get5-for-scrims)
 - Has its own [event logging](https://github.com/splewis/get5/wiki/Event-logs) system you can interface with
 
+Get5 also aims to make it easy to build automation for it. Commands are added so that a remote server can manage get5, collect stats, etc. The [get5 web panel](https://github.com/splewis/get5-web) is an (functional) proof-of-concept for this.
+
 ## Download and Installation
 
 #### Requirements
-You must have sourcemod installed on the game server. You can download it at http://www.sourcemod.net/downloads.php. Note that sourcemod also requires MetaMod:Source to be on the server. You can download it at http://www.sourcemm.net/downloads.
+You must have sourcemod installed on the game server. You can download it at http://www.sourcemod.net/downloads.php. Note that sourcemod also requires MetaMod:Source to be on the server. You can download it at http://www.metamodsource.net/downloads.php.
 
 #### Download
 Download a release package from the [releases section](https://github.com/splewis/get5/releases) or a [the latest development build](http://ci.splewis.net/job/get5/lastSuccessfulBuild/).
@@ -46,11 +51,27 @@ The get5 releases contain 2 additional plugins, disabled by default. They are in
 
 ##### get5_apistats
 
-``get5_apistats`` is for integration with the [get5 web panel](https://github.com/splewis/get5-web). You don't need it unless you're using the web panel.
+``get5_apistats`` is for integration with the [get5 web panel](https://github.com/splewis/get5-web). You don't need it unless you're using the web panel. Note you need the [Steamworks](https://forums.alliedmods.net/showthread.php?t=229556) extension for this plugin.
+
+**NOTE**: The HTTP API requests this plugin sends are **not** part of a public API. They are the communication between this plugin and the [get5-web](https://github.com/splewis/get5-web) project; you should not rely on the API being stable. If you're a developer writing your own server listening to get5_apistats, consider forking the get5_apistats plugin and renaming it to something else.
 
 ##### get5_mysqlstats
 
 ``get5_mysqlstats``: is an optional plugin for recording match stats. To use it, create a "get5" section in your ``addons/sourcemod/configs/databases.cfg`` file and use [these MySQL commands](misc/import_stats.sql) to create the tables. You can also set ``get5_mysql_force_matchid`` to a matchid to make get5 ignore the matchid in match configs, and use the one in the cvar. Otherwise, the matchid will be set based on matchid returned by MySQL from the SQL ``insert`` statement.
+
+
+## Quickstart
+
+To use get5, you generally create a [match config](https://github.com/splewis/get5#match-schema). In this file, you'll set up the match - what players, what map(s), etc.
+
+
+Once you create the match config anywhere under the server's ``csgo`` directory, run ``get5_loadmatch <file>`` in the server console. Everything will happen automatically after that.
+
+If you don't want to create a match config, you can set ``get5_check_auths 0`` in ``cfg/sourcemod/get5.cfg`` and then run the ``get5_creatematch`` command once all players are in the server.
+
+Alternatively, you can also up your server for [scrims](https://github.com/splewis/get5/wiki/Using-get5-for-scrims) by creating a scrim template specifying your team and run ``get5_scrim`` in console.
+
+The ``!get5`` command in-game will let you run the ``get5_creatematch`` and ``get5_scrim`` via a simple menu.
 
 
 ## Commands
@@ -64,6 +85,7 @@ Some client commands are available also for admin usage. For example, sm_pause a
 - ``!unready``: marks a client's team as not-ready
 - ``!pause``: requests a freezetime pause
 - ``!unpause``: requests an unpause, requires the other team to confirm
+- ``!tech``: requests a technical pause (technical pauses have no time limit or max number of uses)
 - ``!coach``: moves a client to coach for their team
 - ``!stay``: elects to stay after a knife round win
 - ``!swap``: elects to swap after a knife round win
@@ -74,7 +96,7 @@ Some client commands are available also for admin usage. For example, sm_pause a
 - ``get5_loadmatch``: loads a match config file (JSON or keyvalues) relative from the ``csgo`` directory
 - ``get5_loadbackup``: loads a get5 backup file
 - ``get5_loadteam``: loads a team section from a file into a team
-- ``get5_loadmatch_url``: loads a remote (JSON formatted) match config by sending a HTTP GET to the given url, this requires either the [system2](https://forums.alliedmods.net/showthread.php?t=146019) or [Steamworks](https://forums.alliedmods.net/showthread.php?t=229556) Extensions
+- ``get5_loadmatch_url``: loads a remote (JSON formatted) match config by sending a HTTP GET to the given url, this requires the [Steamworks](https://forums.alliedmods.net/showthread.php?t=229556) extension
 - ``get5_endmatch``: force ends the current match
 - ``get5_creatematch``: creates a Bo1 match with the current players on the server on the current map
 - ``get5_scrim``: creates a Bo1 match with the using settings from ``configs/get5/scrim_template.cfg``
@@ -85,9 +107,13 @@ Some client commands are available also for admin usage. For example, sm_pause a
 - ``get5_status``: replies with JSON formatted match state (available to all clients, requires [SMJansson](https://forums.alliedmods.net/showthread.php?t=184604))
 - ``get5_listbackups``: lists backup files for the current matchid or a given matchid
 
+#### Other commands
+
+- ``!get5`` opens a menu that wraps some common commands. It's mostly intended for people using scrim settings, and has menu buttons for starting a scrim, force-starting, force-ending, adding a ringer, and loading the most recent backup file.
+
 ## Match Schema
 
-See the example config in [Valve KeyValues format](configs/get5/example_match.cfg) or [JSON format](configs/get5/example_match.json) to learn how to format the configs. Both files contain equivalent match data.
+See the example config in [Valve KeyValues format](configs/get5/example_match.cfg) or [JSON format](configs/get5/example_match.json) to learn how to format the configs. Both example files contain equivalent match data.
 
 **Note:** to use a JSON match file, you must install the [SMJansson](https://forums.alliedmods.net/showthread.php?t=184604) sourcemod extension on the server.
 
@@ -130,6 +156,19 @@ Instead of the above fields, you can also use "fromfile" and a filename, where t
 Note: these are auto-executed on plugin start by the auto-generated (the 1st time the plugin starts) file ``cfg/sourcemod/get5.cfg``.
 
 You should either set these in the above file, or in the match config's ``cvars`` section. Note: cvars set in the ``cvars`` section will override other settings. Please see [the wiki](https://github.com/splewis/get5/wiki/Full-list-of-get5-cvars) for a full list of cvars. You may also just look at the ``cfg/sourcemod/get5.cfg`` file directly on your server and see the cvar descriptions and values in the autogenerated file.
+
+## API for developers
+
+Get5 can be interacted with in several ways. At a glance:
+
+1. You can write another sourcemod plugin that uses the [get5 natives and forwards](scripting/include/get5.inc). This is exactly what the [get5_apistats](scripting/get5_apistats.sp) and [get5_mysqlstats](get5_mysqlstats.sp) plugins do. Considering starting from those plugin and making any changes you want (forking the get5 plugin itself is strongly discouraged; but just making another plugin using the get5 plugin api like get5_apistats does is encouraged).
+
+1. You can read [event logs](https://github.com/splewis/get5/wiki/Event-logs) from a file on disk (set by ``get5_event_log_format``), through a RCON
+connection to the server console since they are output there, or through another sourcemod plugin (see #1).
+
+1. You can read the [stats](https://github.com/splewis/get5/wiki/Stats-system) get5 collects from a file on disk (set by ``get5_stats_path_format``), or through another sourcemod plugin (see #1).
+
+1. You can execute the ``get5_loadmatch`` command or ``get5_loadmatch_url`` commands via another plugin or via a RCON connection to begin matches. Of course, you could execute any get5 command you want as well.
 
 ## Other things
 

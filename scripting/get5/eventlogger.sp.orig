@@ -218,6 +218,8 @@ public void EventLogger_BombExploded(int client, int site) {
   EventLogger_EndEvent("bomb_exploded");
 }
 
+<<<<<<< HEAD
+=======
 public void EventLogger_PlayerConnect(int client) {
   EventLogger_StartEvent();
   AddMapData(params);
@@ -225,9 +227,14 @@ public void EventLogger_PlayerConnect(int client) {
   EventLogger_EndEvent("player_connect");
 }
 
+>>>>>>> upstream/master
 public void EventLogger_PlayerDisconnect(int client) {
   EventLogger_StartEvent();
   AddMapData(params);
   AddPlayer(params, "client", client);
   EventLogger_EndEvent("player_disconnect");
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> upstream/master

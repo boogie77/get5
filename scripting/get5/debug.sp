@@ -22,7 +22,9 @@ public Action Command_DebugInfo(int client, int args) {
   AddSpacing(f);
   AddLogLines(f, "errors_", 50);
   AddSpacing(f);
-  AddLogLines(f, "get5_debug", 200);
+  AddLogLines(f, "get5_debug.log", 200);
+  AddSpacing(f);
+  AddPluginList(f);
 
   delete f;
 
@@ -38,13 +40,21 @@ static void AddSpacing(File f) {
   }
 }
 
+static bool GetCvar(const char[] name, char[] value, int len) {
+  ConVar cvar = FindConVar(name);
+  if (cvar == null) {
+    Format(value, len, "NULL CVAR");
+    return false;
+  } else {
+    cvar.GetString(value, len);
+    return true;
+  }
+}
+
 static void WriteCvarString(File f, const char[] cvar) {
   char buffer[128];
-  if (GetConVarStringSafe(cvar, buffer, sizeof(buffer))) {
-    f.WriteLine("%s = %s", cvar, buffer);
-  } else {
-    f.WriteLine("%s = NULL CVAR", cvar);
-  }
+  GetCvar(cvar, buffer, sizeof(buffer));
+  f.WriteLine("%s = %s", cvar, buffer);
 }
 
 static void WriteArrayList(File f, const char[] name, ArrayList list) {
@@ -70,6 +80,9 @@ static void AddVersionInfo(File f) {
   f.WriteLine("Plugin version: %s", PLUGIN_VERSION);
   WriteCvarString(f, "sourcemod_version");
   WriteCvarString(f, "metamod_version");
+#if defined COMMIT_STRING
+  f.WriteLine("get5 git commit: %s", COMMIT_STRING);
+#endif
 }
 
 static void AddGlobalStateInfo(File f) {
@@ -126,6 +139,7 @@ static void AddGlobalStateInfo(File f) {
 
 static void AddInterestingCvars(File f) {
   f.WriteLine("Interesting cvars:");
+  WriteCvarString(f, "get5_allow_technical_pause");
   WriteCvarString(f, "get5_autoload_config");
   WriteCvarString(f, "get5_check_auths");
   WriteCvarString(f, "get5_fixed_pause_time");
@@ -203,4 +217,26 @@ static void AddLogLines(File f, const char[] pattern, int maxLines) {
   }
 
   delete dir;
+}
+
+static void AddPluginList(File f) {
+  f.WriteLine("sm plugins list:");
+  Handle iter = GetPluginIterator();
+  while (MorePlugins(iter)) {
+    Handle plugin = ReadPlugin(iter);
+    char filename[PLATFORM_MAX_PATH + 1];
+    GetPluginFilename(plugin, filename, sizeof(filename));
+    char name[128];
+    char author[128];
+    char desc[128];
+    char version[128];
+    char url[128];
+    GetPluginInfo(plugin, PlInfo_Name, name, sizeof(name));
+    GetPluginInfo(plugin, PlInfo_Author, author, sizeof(author));
+    GetPluginInfo(plugin, PlInfo_Description, desc, sizeof(desc));
+    GetPluginInfo(plugin, PlInfo_Version, version, sizeof(version));
+    GetPluginInfo(plugin, PlInfo_URL, url, sizeof(url));
+    f.WriteLine("%s: %s by %s: %s (%s, %s)", filename, name, author, desc, version, url);
+  }
+  CloseHandle(iter);
 }

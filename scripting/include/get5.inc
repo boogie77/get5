@@ -3,16 +3,16 @@
 #endif
 #define _get5_included_
 
-enum GameState {
-  GameState_None,                          // no setup has taken place
-  GameState_PreVeto,                       // warmup, waiting for the veto
-  GameState_Veto,                          // warmup, doing the veto
-  GameState_Warmup,                        // setup done, waiting for players to ready up
-  GameState_KnifeRound,                    // in the knife round
-  GameState_WaitingForKnifeRoundDecision,  // waiting for a .stay/.swap command after the knife
-  GameState_GoingLive,                     // in the lo3 process
-  GameState_Live,                          // the match is live
-  GameState_PostGame,                      // postgame screen + waiting for GOTV to finish broadcast
+enum Get5State {
+  Get5State_None,                          // no setup has taken place
+  Get5State_PreVeto,                       // warmup, waiting for the veto
+  Get5State_Veto,                          // warmup, doing the veto
+  Get5State_Warmup,                        // setup done, waiting for players to ready up
+  Get5State_KnifeRound,                    // in the knife round
+  Get5State_WaitingForKnifeRoundDecision,  // waiting for a .stay/.swap command after the knife
+  Get5State_GoingLive,                     // in the lo3 process
+  Get5State_Live,                          // the match is live
+  Get5State_PostGame,                      // postgame screen + waiting for GOTV to finish broadcast
 };
 
 enum MatchTeam {
@@ -48,7 +48,7 @@ forward void Get5_OnSeriesInit();
 forward void Get5_OnGoingLive(int mapNumber);
 
 // Called whenever the gamestate phase is changed.
-forward void Get5_OnGameStateChanged(GameState oldState, GameState newState);
+forward void Get5_OnGameStateChanged(Get5State oldState, Get5State newState);
 
 // Called when the stats for the last round have been updated.
 forward void Get5_OnRoundStatsUpdated();
@@ -84,7 +84,7 @@ forward void Get5_OnDemoFinished(const char[] filename);
 forward void Get5_OnBackupRestore();
 
 // Returns the current pug gamestate.
-native GameState Get5_GetGameState();
+native Get5State Get5_GetGameState();
 
 // Prints a plugin-formatted message to a client.
 native void Get5_Message(int client, const char[] format, any:...);
@@ -100,11 +100,9 @@ native void Get5_MessageToAll(const char[] format, any:...);
 native bool Get5_LoadMatchConfig(const char[] filename);
 
 // Loads a match config by downloading a remote config via a HTTP GET request.
-// If both Steamworks and system2 are loaded, system2 is used unless preferSystem2 is false.
-// If using the SteamWorks extension, request parameters should be left out of the url
-// and put into the optional ArrayLists parameters.
-native bool Get5_LoadMatchConfigFromURL(const char[] url, bool preferSystem2 = true,
-                                        ArrayList paramNames = null, ArrayList paramValues = null);
+// Request parameters should be left out of the url and put into the optional ArrayLists parameters.
+native bool Get5_LoadMatchConfigFromURL(const char[] url, ArrayList paramNames = null,
+                                        ArrayList paramValues = null);
 
 // Adds a player to a match team. You can optionally force set a player name here as well.
 // Returns if they were successfully added.

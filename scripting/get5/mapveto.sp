@@ -35,11 +35,11 @@ public Action Timer_VetoCountdown(Handle timer) {
 static void AbortVeto() {
   Get5_MessageToAll("%t", "CaptainLeftOnVetoInfoMessage");
   Get5_MessageToAll("%t", "ReadyToResumeVetoInfoMessage");
-  ChangeState(GameState_PreVeto);
+  ChangeState(Get5State_PreVeto);
 }
 
 public void VetoFinished() {
-  ChangeState(GameState_Warmup);
+  ChangeState(Get5State_Warmup);
   Get5_MessageToAll("%t", "MapDecidedInfoMessage");
 
   // Use total series score as starting point, to not print skipped maps
@@ -196,6 +196,7 @@ public void GiveConfirmationMenu(int client, MenuHandler handler, const char[] t
   menu.AddItem(CONFIRM_NEGATIVE_VALUE, negativeBuffer);
 
   // Show menu and disable confirmations
+  g_ActiveVetoMenu = menu;
   menu.Display(client, MENU_TIME_FOREVER);
   SetConfirmationTime(false);
 }
@@ -245,6 +246,7 @@ public void GiveMapVetoMenu(int client) {
     g_MapsLeftInVetoPool.GetString(i, mapName, sizeof(mapName));
     menu.AddItem(mapName, mapName);
   }
+  g_ActiveVetoMenu = menu;
   menu.Display(client, MENU_TIME_FOREVER);
   SetConfirmationTime(true);
 }
@@ -306,6 +308,7 @@ public void GiveMapPickMenu(int client) {
     g_MapsLeftInVetoPool.GetString(i, mapName, sizeof(mapName));
     menu.AddItem(mapName, mapName);
   }
+  g_ActiveVetoMenu = menu;
   menu.Display(client, MENU_TIME_FOREVER);
   SetConfirmationTime(true);
 }
@@ -362,6 +365,7 @@ public void GiveSidePickMenu(int client) {
   menu.SetTitle("%T", "MapVetoSidePickMenuText", client, mapName);
   menu.AddItem("CT", "CT");
   menu.AddItem("T", "T");
+  g_ActiveVetoMenu = menu;
   menu.Display(client, MENU_TIME_FOREVER);
   SetConfirmationTime(true);
 }

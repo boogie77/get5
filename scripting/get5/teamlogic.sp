@@ -1,5 +1,5 @@
 public Action Command_JoinGame(int client, const char[] command, int argc) {
-  if (g_GameState == GameState_None) {
+  if (g_GameState == Get5State_None) {
     return Plugin_Continue;
   }
 
@@ -31,7 +31,7 @@ public Action Command_JoinTeam(int client, const char[] command, int argc) {
     return Plugin_Stop;
 
   // Don't do anything if not live/not in startup phase.
-  if (g_GameState == GameState_None) {
+  if (g_GameState == Get5State_None) {
     return Plugin_Continue;
   }
 
@@ -118,9 +118,11 @@ public void MoveClientToCoach(int client) {
   if (!InWarmup() && !InFreezeTime()) {
     // TODO: this needs to be tested more thoroughly,
     // it might need to be done in reverse order (?)
+    LogDebug("Moving %L directly to coach slot", client);
     SwitchPlayerTeam(client, CS_TEAM_SPECTATOR);
     UpdateCoachTarget(client, csTeam);
   } else {
+    LogDebug("Moving %L indirectly to coach slot via coach cmd", client);
     g_MovingClientToCoach[client] = true;
     FakeClientCommand(client, "coach %s", teamString);
     g_MovingClientToCoach[client] = false;
@@ -128,6 +130,10 @@ public void MoveClientToCoach(int client) {
 }
 
 public Action Command_SmCoach(int client, int args) {
+  if (g_GameState == Get5State_None) {
+    return Plugin_Continue;
+  }
+
   if (g_CoachingEnabledCvar.IntValue == 0) {
     return Plugin_Handled;
   }
@@ -137,6 +143,10 @@ public Action Command_SmCoach(int client, int args) {
 }
 
 public Action Command_Coach(int client, const char[] command, int argc) {
+  if (g_GameState == Get5State_None) {
+    return Plugin_Continue;
+  }
+
   if (g_CoachingEnabledCvar.IntValue == 0) {
     return Plugin_Handled;
   }
@@ -149,7 +159,8 @@ public Action Command_Coach(int client, const char[] command, int argc) {
     return Plugin_Stop;
   }
 
-  if (g_MovingClientToCoach[client]) {
+  if (g_MovingClientToCoach[client] || g_CheckAuthsCvar.IntValue == 0) {
+    LogDebug("Command_Coach: %L, letting pass-through", client);
     return Plugin_Continue;
   }
 
@@ -195,7 +206,7 @@ public MatchTeam CSTeamToMatchTeam(int csTeam) {
 }
 
 public MatchTeam GetAuthMatchTeam(const char[] steam64) {
-  if (g_GameState == GameState_None) {
+  if (g_GameState == Get5State_None) {
     return MatchTeam_TeamNone;
   }
 
@@ -353,7 +364,7 @@ public bool RemovePlayerFromTeams(const char[] auth) {
     if (index >= 0) {
       GetTeamAuths(team).Erase(index);
       int target = AuthToClient(steam64);
-      if (IsAuthedPlayer(target)) {
+      if (IsAuthedPlayer(target) && !g_InScrimMode) {
         KickClient(target, "%t", "YourAreNotAPlayerInfoMessage");
       }
       return true;
@@ -364,22 +375,45 @@ public bool RemovePlayerFromTeams(const char[] auth) {
 
 public void LoadPlayerNames() {
   KeyValues namesKv = new KeyValues("Names");
+  int numNames = 0;
   LOOP_TEAMS(team) {
     char id[AUTH_LENGTH + 1];
     char name[MAX_NAME_LENGTH + 1];
     ArrayList ids = GetTeamAuths(team);
     for (int i = 0; i < ids.Length; i++) {
       ids.GetString(i, id, sizeof(id));
-      g_PlayerNames.GetString(id, name, sizeof(name));
-      if (!StrEqual(name, KEYVALUE_STRING_PLACEHOLDER)) {
+      if (g_PlayerNames.GetString(id, name, sizeof(name)) && !StrEqual(name, "") &&
+          !StrEqual(name, KEYVALUE_STRING_PLACEHOLDER)) {
         namesKv.SetString(id, name);
+        numNames++;
       }
     }
   }
 
-  char nameFile[] = "get5_names.txt";
-  namesKv.ExportToFile(nameFile);
-  delete namesKv;
+  if (numNames > 0) {
+    char nameFile[] = "get5_names.txt";
+    DeleteFile(nameFile);
+    if (namesKv.ExportToFile(nameFile)) {
+      ServerCommand("sv_load_forced_client_names_file %s", nameFile);
+    } else {
+      LogError("Failed to write names keyvalue file to %s", nameFile);
+    }
+  }
 
-  ServerCommand("sv_load_forced_client_names_file %s", nameFile);
+  delete namesKv;
+}
+
+public void SwapScrimTeamStatus(int client) {
+  // If we're in any team -> remove from any team list.
+  // If we're not in any team -> add to team1.
+  char auth[AUTH_LENGTH];
+  if (GetAuth(client, auth, sizeof(auth))) {
+    bool alreadyInList = RemovePlayerFromTeams(auth);
+    if (!alreadyInList) {
+      char steam64[AUTH_LENGTH];
+      ConvertAuthToSteam64(auth, steam64);
+      GetTeamAuths(MatchTeam_Team1).PushString(steam64);
+    }
+  }
+  CheckClientTeam(client);
 }

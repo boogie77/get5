@@ -1,0 +1,8 @@
+#tryinclude "manual_version.sp"
+#if !defined PLUGIN_VERSION
+<<<<<<< HEAD
+#define PLUGIN_VERSION "0.5.7-dev-boogie"
+=======
+#define PLUGIN_VERSION "0.7.0-dev"
+>>>>>>> upstream/master
+#endif

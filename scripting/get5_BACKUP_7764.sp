@@ -547,7 +547,7 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
   int client = GetClientOfUserId(event.GetInt("userid"));
   EventLogger_PlayerDisconnect(client);
 
-  if (IsPlayer(client) && OnActiveTeam(client) && g_GameState == Get5State_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 1) {
+  if (IsPlayer(client) && OnActiveTeam(client) && g_GameState == GameState_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 1) {
     int team1Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1));
     int team2Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2));
     
@@ -619,7 +619,7 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
 
       g_MapChangePending = true;
       Get5_MessageToAll("%t", "NextSeriesMapInfoMessage", nextMap);
-      ChangeState(Get5State_PostGame);
+      ChangeState(GameState_PostGame);
       CreateTimer(minDelay, Timer_NextMatchMap);
     }
   }
@@ -790,7 +790,12 @@ static void CheckReadyWaitingTime(MatchTeam team) {
       g_ForceWinnerSignal = true;
       g_ForcedWinner = (team == MatchTeam_Team1) ? MatchTeam_Team2 : MatchTeam_Team1;
       Get5_MessageToAll("%t", "TeamForfeitInfoMessage", g_FormattedTeamNames[team]);
+<<<<<<< HEAD
+
+      ChangeState(GameState_None);
+=======
       ChangeState(Get5State_None);
+>>>>>>> upstream/master
       Stats_Forfeit(team);
       EndSeries();
     } else if (timeLeft >= 300 && timeLeft % 60 == 0) {
@@ -803,7 +808,7 @@ static void CheckReadyWaitingTime(MatchTeam team) {
       Get5_MessageToAll("%t", "10SecondsToForfeitInfoMessage", g_FormattedTeamNames[team],
                         timeLeft);
     }
-  } else if (g_GameState != Get5State_None) {
+  } else if (g_GameState != GameState_None) {
     int timeLeft = g_TeamTimeToStartCvar.IntValue - g_ReadyTimeWaitingUsed[team];
 
     if (timeLeft <= 1) {
@@ -993,7 +998,12 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 
 public Action Event_MatchOver(Event event, const char[] name, bool dontBroadcast) {
   LogDebug("Event_MatchOver");
+<<<<<<< HEAD
+
+  if (g_GameState == GameState_Live) {
+=======
   if (g_GameState == Get5State_Live) {
+>>>>>>> upstream/master
     // Figure out who won
     int t1score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1));
     int t2score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2));
