@@ -547,6 +547,14 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
   int client = GetClientOfUserId(event.GetInt("userid"));
   EventLogger_PlayerDisconnect(client);
 
+  // TODO: consider adding a forfeit if a full team disconnects.
+  if (g_EndMatchOnEmptyServerCvar.BoolValue && g_GameState >= Get5State_Warmup &&
+      g_GameState < Get5State_PostGame && GetRealClientCount() == 0 && !g_MapChangePending) {
+    g_TeamSeriesScores[MatchTeam_Team1] = 0;
+    g_TeamSeriesScores[MatchTeam_Team2] = 0;
+    EndSeries();
+  }
+
   if (IsPlayer(client) && OnActiveTeam(client) && g_GameState == Get5State_Live && g_ForfeitMapOnPlayerLeaveCvar.IntValue != 0 && !g_MapChangePending && GetRealClientCount() > 1) {
     int team1Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team1));
     int team2Score = CS_GetTeamScore(MatchTeamToCSTeam(MatchTeam_Team2));
@@ -661,19 +669,6 @@ public Action Event_PlayerConnectFull(Event event, const char[] name, bool dontB
   EventLogger_PlayerConnect(client);
   if (client > 0) {
     SetEntPropFloat(client, Prop_Send, "m_fForceTeam", 3600.0);
-  }
-}
-
-public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBroadcast) {
-  int client = GetClientOfUserId(event.GetInt("userid"));
-  EventLogger_PlayerDisconnect(client);
-
-  // TODO: consider adding a forfeit if a full team disconnects.
-  if (g_EndMatchOnEmptyServerCvar.BoolValue && g_GameState >= Get5State_Warmup &&
-      g_GameState < Get5State_PostGame && GetRealClientCount() == 0 && !g_MapChangePending) {
-    g_TeamSeriesScores[MatchTeam_Team1] = 0;
-    g_TeamSeriesScores[MatchTeam_Team2] = 0;
-    EndSeries();
   }
 }
 
